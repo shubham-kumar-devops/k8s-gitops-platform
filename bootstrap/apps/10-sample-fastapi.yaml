@@ -1,0 +1,25 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: sample-fastapi
+  namespace: argocd
+spec:
+  project: default
+  source:
+    repoURL: https://github.com/YOUR_USER/k8s-gitops-platform.git
+    targetRevision: main
+    path: apps/sample-fastapi/chart
+    helm:
+      values: |
+        image:
+          repository: ghcr.io/YOUR_USER/sample-fastapi
+          tag: latest
+        ingress:
+          enabled: true
+          host: app.localtest.me
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: sample
+  syncPolicy:
+    automated: { prune: true, selfHeal: true }
+    syncOptions: [CreateNamespace=true]
