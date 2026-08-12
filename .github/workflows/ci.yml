@@ -89,11 +89,11 @@ jobs:
         uses: aquasecurity/trivy-action@master
         with: 
           image-ref: ${{ env.GHCR_IMAGE }}:sha-${{github.sha}}
-          severity: HIGH, CRITICAL
-          
+          severity: HIGH,CRITICAL
+
       - name: Trivay scan (push image)
         if: github.event_name == 'push'
         uses: aquasecurity/trivy-action@master
         with: 
           image-ref: ${{ env.GHCR_IMAGE }}:sha-${{github.sha}}
-          severity: HIGH, CRITICAL
+          severity: HIGH,CRITICAL
