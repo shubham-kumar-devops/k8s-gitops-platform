@@ -1,42 +1,57 @@
+
 name: CI
+
 on:
   push:
-    branches: [main]
-    tags: ['v*.*.*']
+    branches:
+      - main
   pull_request:
 
 jobs:
   lint-manifests:
     runs-on: ubuntu-latest
+
     steps:
       - uses: actions/checkout@v4
+
       - name: Install kubeconform
         run: |
           curl -sSL https://github.com/yannh/kubeconform/releases/latest/download/kubeconform-linux-amd64.tar.gz | tar xz
           sudo mv kubeconform /usr/local/bin/
+
       - name: Validate manifests
         run: |
-          find . -name '*.yaml' -not -path './.git/*' -not -path './apps/sample-fastapi/chart/*' \
-            | xargs kubeconform -strict -ignore-missing-schemas -summary
+          find . -name '*.yaml' \
+            -not -path './.git/*' \
+            -not -path './apps/sample-fastapi/chart/*' \
+            -print0 | xargs -0 kubeconform -strict -ignore-missing-schemas -summary
 
   helm-lint:
     runs-on: ubuntu-latest
+
     steps:
       - uses: actions/checkout@v4
+
       - uses: azure/setup-helm@v4
-      - run: helm lint apps/sample-fastapi/chart
+
+      - name: Helm lint
+        run: helm lint apps/sample-fastapi/chart
 
   build-and-scan:
     runs-on: ubuntu-latest
+
     permissions:
       contents: read
       packages: write
+
     env:
       GHCR_IMAGE: ghcr.io/${{ github.repository_owner }}/sample-fastapi
+
     steps:
       - uses: actions/checkout@v4
 
-      - uses: docker/setup-buildx-action@v3
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
 
       - name: Log in to GHCR
         if: github.event_name == 'push'
@@ -50,17 +65,14 @@ jobs:
         id: meta
         uses: docker/metadata-action@v5
         with:
-          images: |
-            ${{ env.GHCR_IMAGE }}
+          images: ${{ env.GHCR_IMAGE }}
           tags: |
             type=ref,event=branch
             type=ref,event=pr
-            type=semver,pattern={{version}}
-            type=semver,pattern={{major}}.{{minor}}
             type=sha,format=short
             type=raw,value=latest,enable={{is_default_branch}}
 
-      - name: Build (and push on main / tags)
+      - name: build and push on main tags 
         id: build
         uses: docker/build-push-action@v6
         with:
@@ -71,19 +83,17 @@ jobs:
           labels: ${{ steps.meta.outputs.labels }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
-
-      - name: Trivy scan (pushed image)
+      
+      - name: Trivay scan (push image)
         if: github.event_name == 'push'
         uses: aquasecurity/trivy-action@master
-        with:
-          image-ref: ${{ env.GHCR_IMAGE }}:sha-${{ github.sha }}
+        with: 
+          image-ref: ${{ env.GHCR_IMAGE }}:sha-${{github.sha}}
           severity: HIGH,CRITICAL
-          exit-code: '0'
 
-      - name: Trivy scan (PR local image)
-        if: github.event_name == 'pull_request'
+      - name: Trivay scan (push image)
+        if: github.event_name == 'push'
         uses: aquasecurity/trivy-action@master
-        with:
-          image-ref: ${{ env.GHCR_IMAGE }}:pr-${{ github.event.pull_request.number }}
+        with: 
+          image-ref: ${{ env.GHCR_IMAGE }}:sha-${{github.sha}}
           severity: HIGH,CRITICAL
-          exit-code: '0'
